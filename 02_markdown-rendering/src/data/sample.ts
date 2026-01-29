@@ -64,4 +64,5 @@ public void main(String[] args) {
 - 공식 문서: https://nextjs.org
 - AI 모델 소개: [OpenAI](https://openai.com)
 
+<script>alert("공격")</script>
 `;

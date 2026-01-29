@@ -24,28 +24,12 @@ export default function Step4() {
         HTML 태그를 파싱하고, XSS를 방어합니다.
       </p>
       <div className="w-full rounded-lg border border-gray-200 bg-gray-50/80 p-3">
-        <div className="markdown-native">
+        <div className="prose prose-sm max-w-none">
           <ReactMarkdown
             // 1. remarkPlugins: 마크다운 문법 해석 (표, 체크리스트 등)
             remarkPlugins={[remarkGfm]}
             // 2. rehypePlugins: HTML 변환 및 보안 설정
-            rehypePlugins={[
-              rehypeRaw,
-              [
-                rehypeSanitize,
-                {
-                  ...defaultSchema,
-                  attributes: {
-                    ...defaultSchema.attributes,
-                    // 커스텀 스타일이나 특정 클래스를 허용하고 싶을 때 설정
-                    code: [
-                      ...(defaultSchema.attributes?.code || []),
-                      ['className'],
-                    ],
-                  },
-                },
-              ],
-            ]}
+            rehypePlugins={[rehypeRaw, rehypeSanitize]}
             components={{
               // 코드 블록 커스터마이징
               code({ node, className, children, ...props }) {
@@ -77,7 +61,29 @@ export default function Step4() {
                   </code>
                 );
               },
-              // 추가적인 HTML 태그 커스텀 예시 (h1, blockquote 등)
+              img: ({ src, alt, ...props }: any) => {
+                return (
+                  <img
+                    src={src}
+                    alt={alt}
+                    width={600}
+                    height={320}
+                    className="rounded-2xl border border-gray-200"
+                    {...props}
+                  />
+                );
+              },
+              a: ({ href, children, ...props }: any) => (
+                <a
+                  href={href || '#'}
+                  target="_blank"
+                  rel="noopener noreferer"
+                  className="text-indigo-800 font-medium"
+                  {...props}
+                >
+                  {children}
+                </a>
+              ),
               blockquote: ({ children }) => (
                 <blockquote className="border-l-4 border-blue-500 pl-4 italic my-2 text-gray-600">
                   {children}
