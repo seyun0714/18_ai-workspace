@@ -55,14 +55,11 @@ export async function POST(request: NextRequest) {
         { status: response.status },
       );
     }
-
     const decoder = new TextDecoder();
 
-    // OPENAI 응답
+    // 1. 스트림 정의 (여기서 return하지 마세요)
     const stream = new ReadableStream({
-      // start: 스트림이 시작될 때 (클라이언트가 연결 시) 자동으로 호출되는 함수
-      // controller: 스트림 청크 데이터를 전송(push)/종료(close)할 수 있는 컨트롤러 객체
-      start: async (controller) => {
+      async start(controller) {
         const reader = response.body?.getReader();
         if (!reader) {
           controller.close();
@@ -70,26 +67,50 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          // reader 객체를 통해 청크 단위의 모든 데이터들을 읽어들이는 과정
           while (true) {
-            const { done, value } = await reader.read(); // { done, value }
-            if (done) {
-              controller.close();
-              break;
-            }
-            // console.log('value:', value);
-            // 바이너리 데이터 => 문자열 변환 (디코딩 작업)
-            const chunk = decoder.decode(value, { stream: true });
-            console.log(chunk);
+            const { done, value } = await reader.read();
+            if (done) break;
 
-            console.log('---------------------------------');
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              const sseLine = line.trim();
+              if (!sseLine || !sseLine.startsWith('data: ')) continue;
+
+              const data = sseLine.slice(6);
+              if (data === '[DONE]') {
+                controller.close();
+                return; // 루프 및 start 함수 종료
+              }
+
+              try {
+                const json = JSON.parse(data);
+                const content = json.choices[0]?.delta?.content || '';
+                if (content) {
+                  const sseData = `data: ${JSON.stringify({ content })}\n\n`;
+                  controller.enqueue(new TextEncoder().encode(sseData));
+                }
+              } catch (e) {
+                // JSON 파싱 에러 무시
+              }
+            }
           }
         } catch (error) {
-          console.log('스트림 처리 오류:', error);
           controller.error(error);
         } finally {
           reader.releaseLock();
+          controller.close(); // 안전하게 닫기
         }
+      },
+    });
+
+    // 2. 반드시 ReadableStream 정의 "밖"에서 NextResponse를 반환하세요!
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
       },
     });
   } catch (error) {

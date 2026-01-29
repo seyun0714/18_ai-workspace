@@ -25,6 +25,37 @@ export default function ChatStreaming() {
           message,
         }),
       });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '알 수 없는 오류');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('스트림을 읽을 수 없습니다.');
+      }
+
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          const data = line.slice(6);
+          try {
+            const json = JSON.parse(data);
+            const content = json.content;
+
+            setResponse((prev) => prev + content);
+          } catch (error) {}
+        }
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : '알 수 없는 오류');
     } finally {
